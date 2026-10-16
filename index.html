@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Dashboard Display</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode JS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        /* 画面全体のスクロールを完全に禁止 */
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden !important;
+            touch-action: none; /* iOS/iPadOSのバウンス・ページスクロールを防止 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Flip Clock Custom Styles */
+        .flip-unit {
+            position: relative;
+            background-color: #262626;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-weight: 700;
+            overflow: hidden;
+            perspective: 400px;
+        }
+
+        .flip-unit::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #000000;
+            z-index: 10;
+            transform: translateY(-50%);
+            box-shadow: 0 1px 1px rgba(255,255,255,0.05);
+        }
+
+        .flip-number {
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        /* Card Backgrounds & Overlays */
+        .card-bg-news {
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.8s ease-in-out;
+        }
+
+        .card-overlay {
+            background: linear-gradient(180deg, rgba(15,18,25,0.4) 0%, rgba(10,12,18,0.85) 60%, rgba(5,6,10,0.95) 100%);
+            backdrop-filter: blur(2px);
+        }
+
+        .card-bg-weather {
+            background: linear-gradient(135deg, #1e5799 0%, #2989d8 50%, #207cca 70%, #7db9e8 100%);
+        }
+
+        .card-bg-calendar {
+            background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.8)), url('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=1200&q=80') center/cover;
+        }
+
+        /* Flip Animation */
+        .flip-anim {
+            animation: flipDown 0.4s ease-in-out;
+        }
+
+        @keyframes flipDown {
+            0% { transform: rotateX(0deg); }
+            50% { transform: rotateX(-90deg); }
+            100% { transform: rotateX(0deg); }
+        }
+
+        /* ウィジェット部分のみ縦スワイプを許可 */
+        .widget-swipe-area {
+            touch-action: pan-y !important;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center p-4 md:p-8 lg:p-12">
+
+    <!-- Root Container -->
+    <div class="w-full max-w-7xl mx-auto flex flex-col justify-between h-full">
+        
+        <!-- Main Dashboard Layout Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch my-auto">
+            
+            <!-- Left Section: Flip Clock & Date / Weather (7 cols) -->
+            <div class="lg:col-span-7 flex flex-col justify-between py-2 space-y-8">
+                
+                <!-- Flip Clock Container -->
+                <div class="flex items-center justify-start sm:justify-center lg:justify-start gap-2 sm:gap-4 md:gap-6">
+                    <!-- Hours -->
+                    <div class="flip-unit w-24 h-32 sm:w-36 sm:h-48 md:w-44 md:h-56 lg:w-48 lg:h-60">
+                        <span id="hours" class="flip-number text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-white">20</span>
+                    </div>
+
+                    <!-- Colon Separator -->
+                    <div class="text-3xl sm:text-5xl md:text-6xl text-gray-400 font-bold flex flex-col justify-center space-y-2">
+                        <span class="inline-block w-2 h-2 sm:w-3 sm:h-3 bg-gray-300 rounded-full"></span>
+                        <span class="inline-block w-2 h-2 sm:w-3 sm:h-3 bg-gray-300 rounded-full"></span>
+                    </div>
+
+                    <!-- Minutes -->
+                    <div class="flip-unit w-24 h-32 sm:w-36 sm:h-48 md:w-44 md:h-56 lg:w-48 lg:h-60">
+                        <span id="minutes" class="flip-number text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-white">29</span>
+                    </div>
+
+                    <!-- Colon Separator -->
+                    <div class="text-3xl sm:text-5xl md:text-6xl text-gray-400 font-bold flex flex-col justify-center space-y-2">
+                        <span class="inline-block w-2 h-2 sm:w-3 sm:h-3 bg-gray-300 rounded-full"></span>
+                        <span class="inline-block w-2 h-2 sm:w-3 sm:h-3 bg-gray-300 rounded-full"></span>
+                    </div>
+
+                    <!-- Seconds -->
+                    <div class="flip-unit w-24 h-32 sm:w-36 sm:h-48 md:w-44 md:h-56 lg:w-48 lg:h-60">
+                        <span id="seconds" class="flip-number text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-white">07</span>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: Date on Left, Weather on Right -->
+                <div class="flex items-end justify-between px-2 pt-4">
+                    <!-- Date Display -->
+                    <div class="flex flex-col">
+                        <span id="date-display" class="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-wide text-white">
+                            Fri, Oct 16
+                        </span>
+                    </div>
+
+                    <!-- Weather Widget Summary -->
+                    <div class="flex items-center gap-3 sm:gap-4 bg-neutral-900/60 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl border border-neutral-800/80">
+                        <i id="weather-icon" class="fa-solid fa-cloud-showers-heavy text-3xl sm:text-4xl text-gray-200"></i>
+                        <div class="flex flex-col">
+                            <div class="flex items-start">
+                                <span id="temperature" class="text-3xl sm:text-4xl font-bold tracking-tight text-white">22</span>
+                                <span class="text-xl sm:text-2xl font-light text-gray-300">°C</span>
+                            </div>
+                            <span id="weather-location" class="text-xs text-gray-400 font-medium -mt-1">東京 / 雨</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Section: Swipeable Widget Area (5 cols) -->
+            <div class="lg:col-span-5 flex flex-col justify-center">
+                <div id="widgetSection" class="widget-swipe-area relative w-full h-[380px] sm:h-[420px] md:h-[460px] rounded-3xl overflow-hidden shadow-2xl border border-neutral-800/60 bg-neutral-900">
+                    
+                    <!-- Slider Track (上下スワイプ用) -->
+                    <div id="widgetTrack" class="flex flex-col w-full h-full transition-transform duration-500 ease-out">
+                        
+                        <!-- 1. ニュースカード (News Widget) -->
+                        <div id="news-card" class="card-bg-news w-full h-[380px] sm:h-[420px] md:h-[460px] min-h-full shrink-0 relative flex flex-col justify-between p-6 sm:p-8 card-overlay">
+                            <!-- Header -->
+                            <div class="flex items-center justify-between">
+                                <span id="news-source" class="text-xs sm:text-sm font-semibold tracking-wider uppercase text-gray-200 bg-black/50 px-3 py-1 rounded-full border border-white/20 backdrop-blur-md">
+                                    NHK NEWS
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button id="prev-news" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </button>
+                                    <button id="next-news" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Content (文字色をより濃く・読みやすく修正) -->
+                            <div class="space-y-3 my-auto">
+                                <h2 id="news-title" class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white leading-snug tracking-normal line-clamp-3 drop-shadow-sm">
+                                    読み込み中...
+                                </h2>
+                                <p id="news-summary" class="text-xs sm:text-sm text-gray-100 leading-relaxed line-clamp-3 font-medium drop-shadow-sm">
+                                    最新のニュースを取得しています。しばらくお待ちください。
+                                </p>
+                            </div>
+
+                            <!-- Footer -->
+                            <div class="flex items-end justify-between pt-4 border-t border-white/10">
+                                <div class="space-y-1">
+                                    <div id="news-time" class="text-xs sm:text-sm text-gray-300 font-medium">
+                                        10月16日 18:31
+                                    </div>
+                                    <div class="text-[11px] sm:text-xs text-gray-300">
+                                        詳しい内容はQRコードから
+                                    </div>
+                                </div>
+                                <div class="bg-white p-2 rounded-2xl shadow-lg shrink-0 border border-gray-200">
+                                    <div id="qrcode" class="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 詳細天気カード (Detailed Weather Widget) -->
+                        <div class="card-bg-weather w-full h-[380px] sm:h-[420px] md:h-[460px] min-h-full shrink-0 flex flex-col justify-between p-6 sm:p-8 text-white">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 id="weather-detail-title" class="text-2xl sm:text-3xl font-bold">強い雨</h3>
+                                    <p class="text-xs sm:text-sm text-blue-100 mt-1">東京都 &nbsp; ↑ 22° &nbsp; ↓ 15° &nbsp; 💧 80%</p>
+                                </div>
+                                <div class="text-4xl sm:text-5xl font-extrabold">22°</div>
+                            </div>
+                            <!-- 時間ごとの天気予報リスト -->
+                            <div class="bg-black/20 backdrop-blur-md rounded-2xl p-4 flex justify-between items-center text-center">
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">21時</span><span>🌧️</span><span class="font-bold">21°</span><span>0%</span></div>
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">0時</span><span>🌧️</span><span class="font-bold">21°</span><span>0%</span></div>
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">3時</span><span>🌧️</span><span class="font-bold">20°</span><span>0%</span></div>
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">6時</span><span>☀️</span><span class="font-bold">17°</span><span>0%</span></div>
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">9時</span><span>⛅</span><span class="font-bold">23°</span><span>0%</span></div>
+                                <div class="flex flex-col text-xs gap-1.5"><span class="font-semibold">12時</span><span>☁️</span><span class="font-bold">26°</span><span>0%</span></div>
+                            </div>
+                            <div class="text-right text-xs text-blue-100">
+                                上下スワイプでカード切替
+                            </div>
+                        </div>
+
+                        <!-- 3. カレンダーカード (Calendar Widget) -->
+                        <div class="card-bg-calendar w-full h-[380px] sm:h-[420px] md:h-[460px] min-h-full shrink-0 flex flex-col justify-center p-6 sm:p-8">
+                            <div class="space-y-2">
+                                <h3 id="dayOfWeekText" class="text-4xl sm:text-5xl font-extrabold text-white drop-shadow-md">金曜日</h3>
+                                <p id="fullDateText" class="text-lg sm:text-xl text-gray-100 drop-shadow">2026年10月16日</p>
+                            </div>
+                            <div class="mt-8 text-xs text-gray-200">
+                                スケジュールやイベントが一目でわかるカレンダーカード
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- 縦型インジケータードット (Right Side Dots) -->
+                    <div id="widgetIndicators" class="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2.5 items-center z-20">
+                        <div class="w-2 h-2 bg-white/40 rounded-full cursor-pointer transition-all duration-300 active" data-index="0"></div>
+                        <div class="w-2 h-2 bg-white/40 rounded-full cursor-pointer transition-all duration-300" data-index="1"></div>
+                        <div class="w-2 h-2 bg-white/40 rounded-full cursor-pointer transition-all duration-300" data-index="2"></div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Utility Bar -->
+        <div class="flex flex-wrap items-center justify-between text-xs text-neutral-500 pt-4 border-t border-neutral-900">
+            <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] text-green-500"></i> システム正常稼働中</span>
+                <span id="location-status">位置情報: 東京</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="refresh-btn" class="hover:text-neutral-300 transition flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-right"></i> 更新
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        const FALLBACK_NEWS = [
+            {
+                title: "頭部にバット直撃の川上審判員が意識回復 家族「復帰めざす」",
+                summary: "ことし4月、プロ野球の試合で頭部にバットが直撃し、入院が続く川上拓斗審判員の意識が回復したことがわかりました。NPB＝日本野球機構などが復帰に向けたサポートを継続する見通しです。",
+                time: "10月16日 18:31",
+                source: "NHK NEWS",
+                url: "https://www3.nhk.or.jp/news/",
+                image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&q=80"
+            },
+            {
+                title: "次世代AIモデル発表、リアルタイム処理能力が大幅向上",
+                summary: "主要IT企業が本日、新しいAIモデルを世界同時に発表しました。音声翻訳や動画理解の処理速度が従来比で約3倍向上し、スマートデバイスへの搭載が促進されます。",
+                time: "10月16日 19:15",
+                source: "IT Web News",
+                url: "https://news.yahoo.co.jp/",
+                image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80"
+            },
+            {
+                title: "全国的に秋晴れ広がる 関東以西は快適な陽気に",
+                summary: "本州付近は高気圧に覆われ、広い範囲で澄んだ秋空が広がっています。朝夕と昼間の寒暖差が大きくなるため、体調管理に注意するよう呼びかけられています。",
+                time: "10月16日 17:00",
+                source: "気象ニュース",
+                url: "https://tenki.jp/",
+                image: "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1200&q=80"
+            }
+        ];
+
+        let currentNewsList = [...FALLBACK_NEWS];
+        let currentNewsIndex = 0;
+        let newsTimer = null;
+
+        function getWeatherIcon(code) {
+            if (code === 0) return 'fa-sun text-amber-400';
+            if (code >= 1 && code <= 3) return 'fa-cloud-sun text-amber-200';
+            if (code >= 45 && code <= 48) return 'fa-smog text-gray-400';
+            if (code >= 51 && code <= 67) return 'fa-cloud-rain text-blue-300';
+            if (code >= 71 && code <= 77) return 'fa-snowflake text-sky-200';
+            if (code >= 80 && code <= 82) return 'fa-cloud-showers-heavy text-blue-400';
+            if (code >= 95) return 'fa-cloud-bolt text-yellow-400';
+            return 'fa-cloud-showers-heavy text-gray-200';
+        }
+
+        function getWeatherText(code) {
+            if (code === 0) return '快晴';
+            if (code >= 1 && code <= 3) return '晴れ/くもり';
+            if (code >= 45 && code <= 48) return '霧';
+            if (code >= 51 && code <= 67) return '小雨';
+            if (code >= 71 && code <= 77) return '雪';
+            if (code >= 80 && code <= 82) return '雨';
+            if (code >= 95) return '雷雨';
+            return '雨';
+        }
+
+        // Clock & Date Controller
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const hEl = document.getElementById('hours');
+            const mEl = document.getElementById('minutes');
+            const sEl = document.getElementById('seconds');
+
+            if (hEl.textContent !== hours) {
+                hEl.textContent = hours;
+                hEl.parentElement.classList.add('flip-anim');
+                setTimeout(() => hEl.parentElement.classList.remove('flip-anim'), 400);
+            }
+            if (mEl.textContent !== minutes) {
+                mEl.textContent = minutes;
+                mEl.parentElement.classList.add('flip-anim');
+                setTimeout(() => mEl.parentElement.classList.remove('flip-anim'), 400);
+            }
+            if (sEl.textContent !== seconds) {
+                sEl.textContent = seconds;
+                sEl.parentElement.classList.add('flip-anim');
+                setTimeout(() => sEl.parentElement.classList.remove('flip-anim'), 400);
+            }
+
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', options);
+
+            // Calendar Card Update
+            const days = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+            document.getElementById('dayOfWeekText').textContent = days[now.getDay()];
+            document.getElementById('fullDateText').textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+        }
+
+        // Fetch Weather
+        async function fetchWeather(lat = 35.6762, lon = 139.6503, cityName = "東京") {
+            try {
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                if (!response.ok) throw new Error("Weather fetch failed");
+                const data = await response.json();
+                
+                const weather = data.current_weather;
+                const temp = Math.round(weather.temperature);
+                const code = weather.weathercode;
+                
+                document.getElementById('temperature').textContent = temp;
+                const iconEl = document.getElementById('weather-icon');
+                iconEl.className = `fa-solid ${getWeatherIcon(code)} text-3xl sm:text-4xl`;
+                document.getElementById('weather-location').textContent = `${cityName} / ${getWeatherText(code)}`;
+            } catch (err) {
+                document.getElementById('temperature').textContent = "22";
+                document.getElementById('weather-location').textContent = "東京 / 雨";
+            }
+        }
+
+        // Render News Card
+        function renderNews(index) {
+            if (!currentNewsList.length) return;
+            const news = currentNewsList[index];
+            const cardEl = document.getElementById('news-card');
+
+            cardEl.style.opacity = '0.7';
+            setTimeout(() => {
+                cardEl.style.backgroundImage = `url('${news.image}')`;
+                document.getElementById('news-source').textContent = news.source || 'NEWS';
+                document.getElementById('news-title').textContent = news.title;
+                document.getElementById('news-summary').textContent = news.summary;
+                document.getElementById('news-time').textContent = news.time;
+
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: news.url || 'https://www3.nhk.or.jp/news/',
+                    width: 70,
+                    height: 70,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                cardEl.style.opacity = '1';
+            }, 200);
+        }
+
+        function startNewsTimer() {
+            newsTimer = setInterval(() => {
+                currentNewsIndex = (currentNewsIndex + 1) % currentNewsList.length;
+                renderNews(currentNewsIndex);
+            }, 8000);
+        }
+
+        function resetNewsTimer() {
+            clearInterval(newsTimer);
+            startNewsTimer();
+        }
+
+        // Widget Swipe & Tab Controller
+        let currentWidgetIndex = 0;
+        const totalWidgets = 3;
+        const widgetTrack = document.getElementById('widgetTrack');
+        const indicatorDots = document.querySelectorAll('#widgetIndicators div');
+
+        function updateWidgetPosition() {
+            widgetTrack.style.transform = `translateY(-${currentWidgetIndex * 100}%)`;
+
+            indicatorDots.forEach((dot, idx) => {
+                if (idx === currentWidgetIndex) {
+                    dot.classList.add('w-5', 'bg-white');
+                    dot.classList.remove('w-2', 'bg-white/40');
+                } else {
+                    dot.classList.remove('w-5', 'bg-white');
+                    dot.classList.add('w-2', 'bg-white/40');
+                }
+            });
+        }
+
+        indicatorDots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                currentWidgetIndex = parseInt(dot.getAttribute('data-index'));
+                updateWidgetPosition();
+            });
+        });
+
+        // タッチ＆マウススワイプ対応
+        let startY = 0;
+        let isDragging = false;
+        const widgetSection = document.getElementById('widgetSection');
+
+        widgetSection.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+        }, { passive: true });
+
+        widgetSection.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            const diffY = startY - e.changedTouches[0].clientY;
+
+            if (Math.abs(diffY) > 40) {
+                if (diffY > 0 && currentWidgetIndex < totalWidgets - 1) {
+                    currentWidgetIndex++;
+                } else if (diffY < 0 && currentWidgetIndex > 0) {
+                    currentWidgetIndex--;
+                }
+                updateWidgetPosition();
+            }
+        });
+
+        widgetSection.addEventListener('mousedown', (e) => {
+            startY = e.clientY;
+            isDragging = true;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            const diffY = startY - e.clientY;
+
+            if (Math.abs(diffY) > 40) {
+                if (diffY > 0 && currentWidgetIndex < totalWidgets - 1) {
+                    currentWidgetIndex++;
+                } else if (diffY < 0 && currentWidgetIndex > 0) {
+                    currentWidgetIndex--;
+                }
+                updateWidgetPosition();
+            }
+        });
+
+        // Initialize Everything
+        window.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            renderNews(currentNewsIndex);
+            startNewsTimer();
+            fetchWeather();
+
+            document.getElementById('prev-news').addEventListener('click', () => {
+                currentNewsIndex = (currentNewsIndex - 1 + currentNewsList.length) % currentNewsList.length;
+                renderNews(currentNewsIndex);
+                resetNewsTimer();
+            });
+
+            document.getElementById('next-news').addEventListener('click', () => {
+                currentNewsIndex = (currentNewsIndex + 1) % currentNewsList.length;
+                renderNews(currentNewsIndex);
+                resetNewsTimer();
+            });
+
+            document.getElementById('refresh-btn').addEventListener('click', () => {
+                fetchWeather();
+            });
+        });
+    </script>
+</body>
+</html>
